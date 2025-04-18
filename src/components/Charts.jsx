@@ -14,6 +14,7 @@ import {
 } from "chart.js";
 import { ethers } from "ethers";
 import pairAbi from "../abis/UniswapV2Pair.json";
+import erc20Abi from "../abis/ERC20.json";
 
 Chart.register(
     CategoryScale,
@@ -27,6 +28,7 @@ Chart.register(
 );
 
 const Charts = ({ poolAddress, refreshPools }) => {
+    const [symbols, setSymbols] = useState({ token0: "", token1: "" });
     const [reserveData, setReserveData] = useState({
         labels: [],
         datasets: [
@@ -47,12 +49,10 @@ const Charts = ({ poolAddress, refreshPools }) => {
         ]
     });
 
-    // 用于生成不变量曲线数据，曲线形状为 y = k/x
     const generateInvariantCurve = (reserve0, reserve1) => {
         const r0 = Number(reserve0);
         const r1 = Number(reserve1);
         const k = r0 * r1;
-        // 以当前reserve0为中心，选取附近 50%~150% 的范围
         const xMin = r0 * 0.5;
         const xMax = r0 * 1.5;
         const numPoints = 20;
@@ -73,53 +73,60 @@ const Charts = ({ poolAddress, refreshPools }) => {
         const provider = new ethers.JsonRpcProvider(import.meta.env.VITE_RPC_URL);
         const pool = new ethers.Contract(poolAddress, pairAbi, provider);
 
-        // 定时和事件监听函数，用于获取储备、计算价格、更新不变量曲线
+        const fetchSymbols = async () => {
+            const token0Address = await pool.token0();
+            const token1Address = await pool.token1();
+            const token0 = new ethers.Contract(token0Address, erc20Abi, provider);
+            const token1 = new ethers.Contract(token1Address, erc20Abi, provider);
+            const symbol0 = await token0.symbol();
+            const symbol1 = await token1.symbol();
+            setSymbols({ token0: symbol0, token1: symbol1 });
+        };
+
         const fetchData = async () => {
             try {
                 const reserves = await pool.getReserves();
                 const reserve0Formatted = ethers.formatUnits(reserves[0], 18);
                 const reserve1Formatted = ethers.formatUnits(reserves[1], 18);
-                console.log("Chart update - Reserves:", reserve0Formatted, reserve1Formatted);
                 const timestamp = new Date().toLocaleTimeString();
 
-                // 更新储备曲线
                 setReserveData(prev => ({
                     labels: [...prev.labels, timestamp],
                     datasets: [
                         {
                             ...prev.datasets[0],
+                            label: `Reserve ${symbols.token0}`,
                             data: [...prev.datasets[0].data, Number(reserve0Formatted)]
                         },
                         {
                             ...prev.datasets[1],
+                            label: `Reserve ${symbols.token1}`,
                             data: [...prev.datasets[1].data, Number(reserve1Formatted)]
                         }
                     ]
                 }));
 
-                // 计算执行价格：reserve1 / reserve0
                 let price = 0;
                 if (Number(reserve0Formatted) > 0) {
                     price = Number(reserve1Formatted) / Number(reserve0Formatted);
                 }
-                console.log("Calculated price:", price);
                 setPriceData(prev => ({
                     labels: [...prev.labels, timestamp],
                     datasets: [
                         {
                             ...prev.datasets[0],
+                            label: `${symbols.token1} per ${symbols.token0}`,
                             data: [...prev.datasets[0].data, price]
                         }
                     ]
                 }));
 
-                // 计算并更新不变量曲线数据
                 const curve = generateInvariantCurve(reserve0Formatted, reserve1Formatted);
                 setCurveData({
                     labels: curve.labels,
                     datasets: [
                         {
-                            label: "Invariant Curve (y = k/x)",
+                            label: `Invariant Curve (${symbols.token0}-${symbols.token1})`,
                             data: curve.data,
                             borderColor: "green",
                             fill: false
@@ -132,76 +139,78 @@ const Charts = ({ poolAddress, refreshPools }) => {
             }
         };
 
-        // 初次调用
+        fetchSymbols();
         fetchData();
-
-        // 设置定时器，每10秒刷新一次数据
         const interval = setInterval(fetchData, 10000);
 
-        // 监听 Swap 事件，更新执行价格（以及可选的不变量曲线）
-        const swapListener = async (
-            sender,
-            amount0In,
-            amount1In,
-            amount0Out,
-            amount1Out,
-            to,
-            reserve0,
-            reserve1
-        ) => {
-            try {
-                const r0 = Number(ethers.formatUnits(reserve0, 18));
-                const r1 = Number(ethers.formatUnits(reserve1, 18));
-                let price = 0;
-                if (r0 > 0) {
-                    price = r1 / r0;
-                }
-                const timestamp = new Date().toLocaleTimeString();
-                console.log("Swap event detected - Updated reserves:", r0, r1, "price:", price);
-                setPriceData(prev => ({
-                    labels: [...prev.labels, timestamp],
-                    datasets: [
-                        {
-                            ...prev.datasets[0],
-                            data: [...prev.datasets[0].data, price]
-                        }
-                    ]
-                }));
-
-                // 当 Swap 事件触发时，也更新不变量曲线
-                const curve = generateInvariantCurve(r0, r1);
-                setCurveData({
-                    labels: curve.labels,
-                    datasets: [
-                        {
-                            label: "Invariant Curve (y = k/x)",
-                            data: curve.data,
-                            borderColor: "green",
-                            fill: false
-                        }
-                    ]
-                });
-            } catch (e) {
-                console.error("Error in swapListener:", e);
-            }
-        };
-
-        pool.on("Swap", swapListener);
-
-        return () => {
-            clearInterval(interval);
-            pool.off("Swap", swapListener);
-        };
+        return () => clearInterval(interval);
     }, [poolAddress, refreshPools]);
 
     return (
         <div>
-            <h2>Reserves Curve</h2>
-            <Line data={reserveData} />
-            <h2>Execution Price Distribution</h2>
-            <Bar data={priceData} />
-            <h2>Invariant Curve (y = k/x)</h2>
-            <Line data={curveData} />
+            <h2> Reserves Curve ({symbols.token0} / {symbols.token1}) </h2>
+            <Line
+                data={reserveData}
+                options={{
+                    responsive: true,
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: `Token Amount (${symbols.token0} / ${symbols.token1})`
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: "Time"
+                            }
+                        }
+                    }
+                }}
+            />
+            <h2>Execution Price Distribution ({symbols.token1} per {symbols.token0})</h2>
+            <Bar
+                data={priceData}
+                options={{
+                    responsive: true,
+                    scales: {
+                        y: {
+                            title: {
+                                display: true,
+                                text: `Price (${symbols.token1} / ${symbols.token0})`
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: "Time"
+                            }
+                        }
+                    }
+                }}
+            />
+            <h2>Invariant Curve ({symbols.token0}-{symbols.token1})</h2>
+            <Line
+                data={curveData}
+                options={{
+                    responsive: true,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: symbols.token0
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: symbols.token1
+                            }
+                        }
+                    }
+                }}
+            />
         </div>
     );
 };

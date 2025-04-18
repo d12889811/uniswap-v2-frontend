@@ -25,28 +25,22 @@ const PoolSelector = ({ setSelectedPool, poolRefreshCounter, refreshPools }) => 
                 console.log("All pairs length:", length.toString());
                 let poolList = [];
                 for (let i = 0; i < length; i++) {
-                    const pairAddress = await factory.allPairs(i);
-                    console.log(`Pair[${i}] address:`, pairAddress);
-                    const pair = new ethers.Contract(pairAddress, pairAbi, provider);
-                    const token0Address = await pair.token0();
-                    const token1Address = await pair.token1();
-                    const token0Contract = new ethers.Contract(token0Address, erc20Abi, provider);
-                    const token1Contract = new ethers.Contract(token1Address, erc20Abi, provider);
-                    let symbol0;
-                    let symbol1;
                     try {
-                        symbol0 = await token0Contract.symbol();
-                    } catch (e) {
-                        console.error("Error getting symbol for token0", token0Address, e);
-                        symbol0 = token0Address;
+                        const pairAddress = await factory.allPairs(i);
+                        const pair = new ethers.Contract(pairAddress, pairAbi, provider);
+                        const token0Address = await pair.token0();
+                        const token1Address = await pair.token1();
+                        const token0Contract = new ethers.Contract(token0Address, erc20Abi, provider);
+                        const token1Contract = new ethers.Contract(token1Address, erc20Abi, provider);
+
+                        let symbol0 = await token0Contract.symbol();
+                        let symbol1 = await token1Contract.symbol();
+
+                        poolList.push({ address: pairAddress, token0: symbol0, token1: symbol1 });
+                    } catch (err) {
+                        console.warn(`⚠️ Skipping pair[${i}] due to error:`, err);
+                        continue;
                     }
-                    try {
-                        symbol1 = await token1Contract.symbol();
-                    } catch (e) {
-                        console.error("Error getting symbol for token1", token1Address, e);
-                        symbol1 = token1Address;
-                    }
-                    poolList.push({ address: pairAddress, token0: symbol0, token1: symbol1 });
                 }
                 setPairs(poolList);
                 setLoading(false);
@@ -89,7 +83,7 @@ const PoolSelector = ({ setSelectedPool, poolRefreshCounter, refreshPools }) => 
                                     cursor: "pointer"
                                 }}
                             >
-                                {pool.address} ({pool.token0} / {pool.token1})
+                                {pool.token0} - {pool.token1}
                             </button>
                         </li>
                     ))}
