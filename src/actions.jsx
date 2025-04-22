@@ -268,19 +268,20 @@ export async function getReserves({ poolAddress }) {
 export async function countActions({ type = "swap", poolAddress, date }) {
     const logs = JSON.parse(localStorage.getItem("txLogs") || "[]");
 
-    // 默认今天（按本地时区）
+    // 默认使用今天的日期（本地时间），格式：YYYY-MM-DD
     const today = new Date();
-    const yyyy_mm_dd = date || today.toISOString().slice(0, 10);  // e.g., 2025-04-21
-
-    const [year, month, day] = yyyy_mm_dd.split("-").map(Number);
-    const start = new Date(year, month - 1, day, 0, 0, 0);
-    const end = new Date(year, month - 1, day + 1, 0, 0, 0);
+    const yyyy_mm_dd = date || today.toISOString().slice(0, 10);
 
     const filtered = logs.filter(log => {
         if (log.type !== type) return false;
+
+        // ✅ poolAddress 匹配（可选）
         if (poolAddress && log.poolAddress?.toLowerCase() !== poolAddress.toLowerCase()) return false;
-        const ts = new Date(log.timestamp);
-        return ts >= start && ts < end;
+
+        // ✅ 将 log.timestamp 转换为日期字符串（UTC → YYYY-MM-DD）
+        const logDate = new Date(log.timestamp).toISOString().slice(0, 10);
+
+        return logDate === yyyy_mm_dd;
     });
 
     return {
@@ -290,6 +291,7 @@ export async function countActions({ type = "swap", poolAddress, date }) {
         poolAddress: poolAddress || "any"
     };
 }
+
 
 
 
