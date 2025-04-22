@@ -27,14 +27,16 @@ export async function askForPlan(prompt, openaiKey) {
         "- Use when the user wants to add liquidity or provide tokens to a pool.\n" +
         "- Arguments: { \"amountA\": \"...\", \"amountB\": \"...\" }\n" +
         "- If only one amount is provided, set both amountA and amountB to that value.\n" +
-        "- Requires pool selection. If pool is mentioned, use `selectPool` first.\n" +
+        "- If pool is mentioned, use `selectPool` first.\n" +
+        "- ✅ If pool is NOT mentioned, still output the `deposit` step WITHOUT poolAddress. Let the system handle it later.\n" +
         "\n" +
         "👉 For `redeem`:\n" +
         "- Use when the user wants to remove liquidity or withdraw their share.\n" +
         "- Argument: { \"percent\": \"...\" } — the percentage of their LP tokens to redeem.\n" +
         "- Must be a number between 1 and 100.\n" +
         "- If user says 'redeem all', use { \"percent\": \"100\" }.\n" +
-        "- Requires pool selection. If pool is mentioned, use `selectPool` first.\n" +
+        "- If pool is mentioned, use `selectPool` first.\n" +
+        "- ✅ If pool is NOT mentioned, still output the `redeem` step WITHOUT poolAddress.\n" +
         "\n" +
         "👉 For `swap`:\n" +
         "- Use `swap` when the user wants to exchange one token for another.\n" +
@@ -52,6 +54,7 @@ export async function askForPlan(prompt, openaiKey) {
         "- Do NOT assume token0/token1, just use the symbols as given.\n" +
         "- Requires pool selection. Use `selectPool` first if pool is mentioned.\n" +
         "- ⚠ NEVER confuse 'swap 10 A for B' with exact output — it is exact input.\n" +
+        "- ⚠ If no pool is mentioned, DO NOT output the `swap` step.\n" +
         "\n" +
         "👉 For `getReserves`:\n" +
         "- Use this when the user asks about current reserves or token composition of a pool.\n" +
@@ -61,12 +64,15 @@ export async function askForPlan(prompt, openaiKey) {
         "\n" +
         "👉 For `countActions`:\n" +
         "- Use this when the user asks how many swaps, deposits, or redeems happened.\n" +
-        "- Argument: { \"type\": \"swap\" | \"deposit\" | \"redeem\" }\n" +
-        "- Optionally include \"date\": \"YYYY-MM-DD\".\n" +
+        "- Arguments: { \"type\": \"swap\" | \"deposit\" | \"redeem\" }\n" +
+        "- Optionally include \"date\": \"YYYY-MM-DD\"\n" +
+        "- If the user asks about **today**, omit the `date` field entirely.\n" +
         "- If a pool is mentioned, use `selectPool` first and pass poolAddress: \"$poolAddress\".\n" +
         "- If no pool is mentioned, omit poolAddress.\n" +
         "\n" +
-        "⚠️ NEVER fabricate or assume any token symbols or pool addresses. Only act when user input makes it explicit.\n";
+        "⚠️ NEVER fabricate or assume any token symbols, addresses, or pool names.\n" +
+        "✅ If pool is not specified, still output meaningful actions like `redeem`, `deposit`, or `countActions` without the pool.\n";
+
 
 
 
