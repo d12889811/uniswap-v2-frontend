@@ -3,12 +3,7 @@
     "constant": true,
     "inputs": [],
     "name": "name",
-    "outputs": [
-      {
-        "name": "",
-        "type": "string"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "string" }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
@@ -17,12 +12,7 @@
     "constant": true,
     "inputs": [],
     "name": "symbol",
-    "outputs": [
-      {
-        "name": "",
-        "type": "string"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "string" }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
@@ -31,12 +21,7 @@
     "constant": true,
     "inputs": [],
     "name": "decimals",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint8" }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
@@ -45,56 +30,37 @@
     "constant": true,
     "inputs": [],
     "name": "totalSupply",
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "", "type": "uint256" }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
   },
   {
     "constant": true,
-    "inputs": [
-      {
-        "name": "_owner",
-        "type": "address"
-      }
-    ],
+    "inputs": [{ "name": "_owner", "type": "address" }],
     "name": "balanceOf",
-    "outputs": [
-      {
-        "name": "balance",
-        "type": "uint256"
-      }
-    ],
+    "outputs": [{ "name": "balance", "type": "uint256" }],
     "payable": false,
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "value",
-        "type": "uint256"
-      }
+      { "internalType": "address", "name": "to", "type": "address" },
+      { "internalType": "uint256", "name": "value", "type": "uint256" }
     ],
     "name": "transfer",
-    "outputs": [
-      {
-        "internalType": "bool",
-        "name": "",
-        "type": "bool"
-      }
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      { "internalType": "address", "name": "_spender", "type": "address" },
+      { "internalType": "uint256", "name": "_value", "type": "uint256" }
     ],
+    "name": "approve",
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
     "stateMutability": "nonpayable",
     "type": "function"
   }

@@ -5,12 +5,10 @@ import factoryAbi from "../abis/UniswapV2Factory.json";
 import pairAbi from "../abis/UniswapV2Pair.json";
 import erc20Abi from "../abis/ERC20.json";
 
-const PoolSelector = ({ setSelectedPool, poolRefreshCounter, refreshPools }) => {
+const PoolSelector = ({ selectedPool, setSelectedPool, poolRefreshCounter, refreshPools }) => {
     const [pairs, setPairs] = useState([]);
     const [loading, setLoading] = useState(false);
     // 用于记录当前选中的 pool 地址
-    const [selectedPoolAddress, setSelectedPoolAddress] = useState("");
-
     useEffect(() => {
         async function fetchPools() {
             try {
@@ -53,9 +51,9 @@ const PoolSelector = ({ setSelectedPool, poolRefreshCounter, refreshPools }) => 
     }, [poolRefreshCounter]);
 
     const handleSelect = (poolAddr) => {
-        setSelectedPoolAddress(poolAddr);
         setSelectedPool(poolAddr);
-        // 立即刷新父组件中与池子相关的状态和图表
+        window.selectedPool = poolAddr;   // ✅ 同步更新全局变量
+
         if (refreshPools) {
             refreshPools();
         }
@@ -75,9 +73,9 @@ const PoolSelector = ({ setSelectedPool, poolRefreshCounter, refreshPools }) => 
                                 style={{
                                     padding: "0.5rem 1rem",
                                     backgroundColor:
-                                        pool.address === selectedPoolAddress ? "#007bff" : "#eee",
+                                        pool.address.toLowerCase() === selectedPool?.toLowerCase() ? "#007bff" : "#eee",
                                     color:
-                                        pool.address === selectedPoolAddress ? "#fff" : "#000",
+                                        pool.address.toLowerCase()=== selectedPool?.toLowerCase() ? "#fff" : "#000",
                                     border: "none",
                                     borderRadius: "4px",
                                     cursor: "pointer"

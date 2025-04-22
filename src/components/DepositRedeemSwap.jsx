@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { ethers } from "ethers";
 import pairAbi from "../abis/UniswapV2Pair.json";
 import erc20Abi from "../abis/ERC20.json"; // ERC20 ABI 文件
-
+import { logAction } from "../utils/logAction";
 const DepositRedeemSwap = ({ poolAddress, refreshPools }) => {
     const [action, setAction] = useState("deposit"); // deposit, redeem, swap
     // 存储 token0 和 token1 的数量（字符串，单位为 token 数量，假设都是18位小数）
@@ -11,7 +11,7 @@ const DepositRedeemSwap = ({ poolAddress, refreshPools }) => {
     const [amountToken1, setAmountToken1] = useState("");
     const [swapOutput, setSwapOutput] = useState("");
     const [redeemPercent, setRedeemPercent] = useState("");
-
+    const [swapOutputToken, setSwapOutputToken] = useState("token1");
     async function handleAction() {
         if (!window.ethereum) {
             alert("MetaMask is required");
@@ -74,6 +74,15 @@ const DepositRedeemSwap = ({ poolAddress, refreshPools }) => {
                 tx = await pool.mint(await signer.getAddress());
                 await tx.wait();
                 console.log("Mint tx hash:", tx.hash);
+                logAction({
+                    type: "deposit",
+                    poolAddress,
+                    token0: token0Address,
+                    token1: token1Address,
+                    amount0: finalDepositAmount0.toString(),
+                    amount1: finalDepositAmount1.toString(),
+                    txHash: tx.hash
+                });
                 alert("Deposit successful");
             } else if (action === "redeem") {
                 // Redeem 分支：计算用户赎回的 LP 数量
@@ -117,40 +126,76 @@ const DepositRedeemSwap = ({ poolAddress, refreshPools }) => {
                 tx = await pool.burn(userAddress);
                 await tx.wait();
                 console.log("Burn (redeem) tx executed, tx hash:", tx.hash);
+                const token0Address = await pool.token0();
+                const token1Address = await pool.token1();
+                logAction({
+                    type: "redeem",
+                    poolAddress,
+                    token0: token0Address,
+                    token1: token1Address,
+                    amount0: expectedToken0.toString(),
+                    amount1: expectedToken1.toString(),
+                    txHash: tx.hash
+                });
                 alert("Redeem successful");
             } else if (action === "swap") {
-                // Swap 分支：计算需要的 token0 输入并执行 swap 操作
                 const desiredOutput = ethers.parseUnits(swapOutput, 18);
-                console.log("Desired output (token1):", ethers.formatUnits(desiredOutput, 18));
+
+                const token0Address = await pool.token0();
+                const token1Address = await pool.token1();
+
+                const token0 = new ethers.Contract(token0Address, erc20Abi, signer);
+                const token1 = new ethers.Contract(token1Address, erc20Abi, signer);
+
+                const [symbol0, symbol1] = await Promise.all([
+                    token0.symbol(), token1.symbol()
+                ]);
+
                 const reserves = await pool.getReserves();
                 const reserve0 = reserves[0];
                 const reserve1 = reserves[1];
-                console.log(
-                    "Before swap - Reserves: reserve0 =",
-                    ethers.formatUnits(reserve0, 18),
-                    "reserve1 =",
-                    ethers.formatUnits(reserve1, 18)
-                );
-                if (desiredOutput >= reserve1) {
-                    throw new Error("Desired output exceeds pool liquidity");
+
+                let inputTokenContract, amountIn, amount0Out = 0n, amount1Out = 0n;
+
+                if (swapOutputToken === "token1") {
+                    // 输入 token0，输出 token1
+                    const numerator = reserve0 * desiredOutput * 1000n;
+                    const denominator = (reserve1 - desiredOutput) * 997n;
+                    amountIn = (numerator / denominator) + 1n;
+
+                    inputTokenContract = token0;
+                    amount1Out = desiredOutput;
+                } else {
+                    // 输入 token1，输出 token0
+                    const numerator = reserve1 * desiredOutput * 1000n;
+                    const denominator = (reserve0 - desiredOutput) * 997n;
+                    amountIn = (numerator / denominator) + 1n;
+
+                    inputTokenContract = token1;
+                    amount0Out = desiredOutput;
                 }
-                const numerator = reserve0 * desiredOutput * 1000n;
-                const denominator = (reserve1 - desiredOutput) * 997n;
-                const requiredInput = (numerator / denominator) + 1n;
-                console.log("Calculated required token0 input (wei):", requiredInput.toString());
-                const token0Address = await pool.token0();
-                const token0 = new ethers.Contract(token0Address, erc20Abi, signer);
-                let tx = await token0.transfer(poolAddress, requiredInput);
-                await tx.wait();
-                console.log("Pre-transfer of token0 complete, tx hash:", tx.hash);
-                tx = await pool.swap(
-                    0,
-                    desiredOutput,
+
+                const tx1 = await inputTokenContract.transfer(poolAddress, amountIn);
+                await tx1.wait();
+
+                const tx2 = await pool.swap(
+                    amount0Out,
+                    amount1Out,
                     await signer.getAddress(),
                     "0x"
                 );
-                await tx.wait();
-                console.log("Swap transaction executed, tx hash:", tx.hash);
+                await tx2.wait();
+
+                logAction({
+                    type: "swap",
+                    poolAddress,
+                    token0: token0Address,
+                    token1: token1Address,
+                    amount0: amount0Out.toString() || amountIn.toString(),
+                    amount1: amount1Out.toString() || amountIn.toString(),
+                    txHash: tx2.hash
+                });
+
                 alert("Swap successful");
             }
             if (refreshPools) refreshPools();
@@ -233,13 +278,20 @@ const DepositRedeemSwap = ({ poolAddress, refreshPools }) => {
             {action === "swap" && (
                 <div>
                     <label>
-                        Desired Output Amount for Token 1 (in token units):
+                        Desired Output Amount (in token units):
                         <input
                             type="text"
                             value={swapOutput}
                             onChange={(e) => setSwapOutput(e.target.value)}
                             placeholder="e.g., 1"
                         />
+                    </label>
+                    <label>
+                        Output Token:
+                        <select value={swapOutputToken} onChange={(e) => setSwapOutputToken(e.target.value)}>
+                            <option value="token0">token0</option>
+                            <option value="token1">token1</option>
+                        </select>
                     </label>
                 </div>
             )}
