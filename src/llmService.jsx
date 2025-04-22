@@ -16,7 +16,7 @@ export async function askForPlan(prompt, openaiKey) {
         "- If user mentions a pool like 'ETH-USDC', 'USDT and WBTC', or 'AAA-BBB', add a `selectPool` step with:\n" +
         '    { "symbolA": "...", "symbolB": "..." } or { "poolId": "AAA-BBB" }\n' +
         "- If the user does NOT mention a pool, DO NOT include `selectPool` or `poolAddress`.\n" +
-        "- NEVER guess or assume the poolAddress yourself.\n" +
+        "- NEVER guess or assume the poolAddress or token symbols yourself.\n" +
         "\n" +
         "👉 For `createPool`:\n" +
         "- Use when the user wants to create a new pool with two tokens.\n" +
@@ -37,13 +37,21 @@ export async function askForPlan(prompt, openaiKey) {
         "- Requires pool selection. If pool is mentioned, use `selectPool` first.\n" +
         "\n" +
         "👉 For `swap`:\n" +
-        "- If the user says 'I want to swap X TokenA to get TokenB', use:\n" +
-        '    { "fromSymbol": "TokenA", "toSymbol": "TokenB", "amount": "X" } // exact input\n' +
-        "- If the user says 'I want to get Y TokenB by swapping TokenA', use:\n" +
-        '    { "fromSymbol": "TokenA", "toSymbol": "TokenB", "amountOut": "Y" } // exact output\n' +
+        "- Use `swap` when the user wants to exchange one token for another.\n" +
+        "- Determine intent based on language:\n" +
+        "\n" +
+        "✅ Exact input (most common):\n" +
+        "- User says: 'swap 10 TCA for TCB', 'swap 5 TokenA into TokenB', or 'give 8 DAI to get USDC'\n" +
+        "→ Use: { \"fromSymbol\": \"TCA\", \"toSymbol\": \"TCB\", \"amount\": \"10\" }\n" +
+        "\n" +
+        "✅ Exact output:\n" +
+        "- User says: 'I want to get 15 USDT by swapping ETH', or 'receive 6 TCB using TCA'\n" +
+        "→ Use: { \"fromSymbol\": \"TCA\", \"toSymbol\": \"TCB\", \"amountOut\": \"6\" }\n" +
+        "\n" +
         "- If the user provides both, include both `amount` and `amountOut`, and the system will prioritize `amount`.\n" +
-        "- Do NOT guess which token is token0/token1, just use symbols.\n" +
-        "- Requires pool selection. Use `selectPool` if pool mentioned.\n" +
+        "- Do NOT assume token0/token1, just use the symbols as given.\n" +
+        "- Requires pool selection. Use `selectPool` first if pool is mentioned.\n" +
+        "- ⚠ NEVER confuse 'swap 10 A for B' with exact output — it is exact input.\n" +
         "\n" +
         "👉 For `getReserves`:\n" +
         "- Use this when the user asks about current reserves or token composition of a pool.\n" +
@@ -55,8 +63,11 @@ export async function askForPlan(prompt, openaiKey) {
         "- Use this when the user asks how many swaps, deposits, or redeems happened.\n" +
         "- Argument: { \"type\": \"swap\" | \"deposit\" | \"redeem\" }\n" +
         "- Optionally include \"date\": \"YYYY-MM-DD\".\n" +
-        "- If pool is mentioned, use `selectPool` first and pass poolAddress: \"$poolAddress\".\n" +
-        "- If no pool is mentioned, omit poolAddress.\n";
+        "- If a pool is mentioned, use `selectPool` first and pass poolAddress: \"$poolAddress\".\n" +
+        "- If no pool is mentioned, omit poolAddress.\n" +
+        "\n" +
+        "⚠️ NEVER fabricate or assume any token symbols or pool addresses. Only act when user input makes it explicit.\n";
+
 
 
 
@@ -119,10 +130,6 @@ export async function askForPlan(prompt, openaiKey) {
     const fixed = planArr.map(step => {
         const name = step.name;
         const args = { ...(step.args || step.arguments || {}) };
-
-        if (name === "swap"   && args.amount && !args.amountOut)         {
-            args.amountOut = args.amount; delete args.amount;
-        }
         if (name === "redeem" && args.amount && !args.percent)           {
             args.percent = args.amount; delete args.amount;
         }
