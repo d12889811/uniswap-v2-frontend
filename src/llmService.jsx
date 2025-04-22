@@ -54,7 +54,6 @@ export async function askForPlan(prompt, openaiKey) {
         "- Do NOT assume token0/token1, just use the symbols as given.\n" +
         "- Requires pool selection. Use `selectPool` first if pool is mentioned.\n" +
         "- ⚠ NEVER confuse 'swap 10 A for B' with exact output — it is exact input.\n" +
-        "- ⚠ If no pool is mentioned, DO NOT output the `swap` step.\n" +
         "\n" +
         "👉 For `getReserves`:\n" +
         "- Use this when the user asks about current reserves or token composition of a pool.\n" +
