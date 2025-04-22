@@ -7,7 +7,7 @@ import Charts              from "./components/Charts";
 import CreatePool          from "./components/CreatePool";
 import NLBox               from "./components/NLBox";
 
-import { buildTokenRegistry } from "./tokenRegistry";   // ← 小写 t，扩展名 .js
+import { buildTokenRegistry } from "./TokenRegistry.jsx";   // ← 小写 t，扩展名 .js
 
 function App() {
     /* ---------- 链上 Token 列表，随池子刷新 ---------- */
